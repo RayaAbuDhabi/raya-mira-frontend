@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 
 export default function Home() {
-  const [mode, setMode] = useState('smart');
+  const [mode, setMode] = useState('dual'); // Start with Dual Mode (more reliable)
   const [character, setCharacter] = useState('raya');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -14,10 +14,8 @@ export default function Home() {
   const recognitionRef = useRef(null);
 
   useEffect(() => {
-    // Set API URL
     setApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
     
-    // Check for speech recognition support
     if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -31,6 +29,10 @@ export default function Home() {
           const transcript = event.results[0][0].transcript;
           setInput(transcript);
           setIsListening(false);
+          // AUTO-SEND after speech recognition!
+          setTimeout(() => {
+            handleSendMessage(transcript);
+          }, 500);
         };
         
         recognition.onerror = (event) => {
@@ -57,7 +59,6 @@ export default function Home() {
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
-      // Update language based on mode/character
       if (mode === 'dual' && character === 'raya') {
         recognitionRef.current.lang = 'ar-AE';
       } else {
@@ -81,14 +82,14 @@ export default function Home() {
     audio.play().catch(err => console.error('Audio playback failed:', err));
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+  const handleSendMessage = async (messageText) => {
+    const textToSend = messageText || input.trim();
+    if (!textToSend || loading) return;
 
-    const userMessage = input.trim();
     setInput('');
     setLoading(true);
 
-    const newMessages = [...messages, { role: 'user', content: userMessage }];
+    const newMessages = [...messages, { role: 'user', content: textToSend }];
     setMessages(newMessages);
 
     try {
@@ -96,7 +97,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: userMessage,
+          message: textToSend,
           character: character,
           mode: mode,
           history: newMessages.map(m => ({ role: m.role, content: m.content }))
@@ -132,6 +133,10 @@ export default function Home() {
     }
   };
 
+  const sendMessage = () => {
+    handleSendMessage();
+  };
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -142,16 +147,17 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Raya & Mira - Airport Assistants</title>
+        <title>Raya & Mira - Abu Dhabi Airport Assistants</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta name="description" content="AI-powered bilingual airport assistants" />
+        <meta name="description" content="AI-powered bilingual airport assistants for Abu Dhabi International Airport" />
       </Head>
 
       <div style={styles.container}>
-        {/* Header */}
+        {/* Header - UAE Flag Colors */}
         <div style={styles.header}>
-          <h1 style={styles.title}>🎭 Raya & Mira</h1>
-          <p style={styles.subtitle}>Your Bilingual Airport Assistants</p>
+          <div style={styles.flagStripe}></div>
+          <h1 style={styles.title}>🇦🇪 Raya & Mira</h1>
+          <p style={styles.subtitle}>Abu Dhabi International Airport</p>
         </div>
 
         {/* Mode Selection */}
@@ -177,17 +183,17 @@ export default function Home() {
           <div style={styles.characterContainer}>
             <button
               onClick={() => setCharacter('raya')}
-              style={{...styles.characterButton, ...(character === 'raya' ? styles.characterActive : {})}}
+              style={{...styles.characterButton, ...(character === 'raya' ? styles.characterActiveRaya : {})}}
             >
               <span style={styles.charEmoji}>🇦🇪</span>
               <div>
                 <div style={styles.charName}>Raya</div>
-                <div style={styles.charDesc}>Emirati • Arabic</div>
+                <div style={styles.charDesc}>Emirati • العربية</div>
               </div>
             </button>
             <button
               onClick={() => setCharacter('mira')}
-              style={{...styles.characterButton, ...(character === 'mira' ? styles.characterActive : {})}}
+              style={{...styles.characterButton, ...(character === 'mira' ? styles.characterActiveMira : {})}}
             >
               <span style={styles.charEmoji}>🌍</span>
               <div>
@@ -202,10 +208,15 @@ export default function Home() {
         <div style={styles.messagesContainer}>
           {messages.length === 0 && (
             <div style={styles.emptyState}>
+              <div style={styles.logoCircle}>
+                <span style={styles.logoEmoji}>
+                  {mode === 'dual' ? (character === 'raya' ? '🇦🇪' : '🌍') : '🎭'}
+                </span>
+              </div>
               <p style={styles.emptyText}>
                 {mode === 'smart' 
-                  ? '💬 Type or speak in Arabic or English!' 
-                  : `💬 Chat with ${character === 'raya' ? 'Raya 🇦🇪' : 'Mira 🌍'}`}
+                  ? '💬 Speak or type in Arabic or English!' 
+                  : `مرحباً! Welcome to ${character === 'raya' ? 'Raya 🇦🇪' : 'Mira 🌍'}`}
               </p>
               {speechSupported && (
                 <p style={styles.emptySubtext}>
@@ -235,7 +246,7 @@ export default function Home() {
                   onClick={() => playAudio(msg.audioBase64)}
                   style={styles.playButton}
                 >
-                  🔊 Play Audio
+                  🔊 استمع • Listen
                 </button>
               )}
             </div>
@@ -253,6 +264,7 @@ export default function Home() {
                 ...(isListening ? styles.micButtonActive : {})
               }}
               disabled={loading}
+              title={character === 'raya' ? 'اضغط للتحدث' : 'Tap to speak'}
             >
               {isListening ? '🔴' : '🎤'}
             </button>
@@ -261,7 +273,7 @@ export default function Home() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={isListening ? "Listening..." : "Type or speak your message..."}
+            placeholder={isListening ? "جاري الاستماع... Listening..." : (character === 'raya' ? "اكتب رسالتك هنا..." : "Type your message...")}
             style={styles.input}
             rows={2}
             disabled={loading || isListening}
@@ -280,7 +292,12 @@ export default function Home() {
 
         {/* Footer */}
         <div style={styles.footer}>
-          {speechSupported ? '🎤 Voice enabled • ' : ''}Powered by Groq • Edge TTS • Built by Mr. Data
+          <div style={styles.footerFlag}>
+            <div style={{...styles.footerFlagBar, backgroundColor: '#00843D'}}></div>
+            <div style={{...styles.footerFlagBar, backgroundColor: '#FFFFFF'}}></div>
+            <div style={{...styles.footerFlagBar, backgroundColor: '#000000'}}></div>
+          </div>
+          {speechSupported ? '🎤 Voice enabled • ' : ''}Powered by Groq & Edge TTS • Built in Abu Dhabi 🇦🇪
         </div>
       </div>
     </>
@@ -294,38 +311,50 @@ const styles = {
     height: '100vh',
     maxWidth: '800px',
     margin: '0 auto',
-    backgroundColor: '#f5f5f5',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    backgroundColor: '#f8f8f8',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif'
   },
   header: {
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #EE2A35 0%, #C5203A 50%, #8B1528 100%)',
     color: 'white',
     padding: '20px',
     textAlign: 'center',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+    boxShadow: '0 4px 12px rgba(238, 42, 53, 0.3)',
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  flagStripe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '8px',
+    height: '100%',
+    background: 'linear-gradient(to bottom, #00843D 33.33%, #FFFFFF 33.33%, #FFFFFF 66.66%, #000000 66.66%)'
   },
   title: {
     margin: '0 0 5px 0',
-    fontSize: '24px',
-    fontWeight: 'bold'
+    fontSize: '26px',
+    fontWeight: 'bold',
+    textShadow: '0 2px 4px rgba(0,0,0,0.2)'
   },
   subtitle: {
     margin: 0,
     fontSize: '14px',
-    opacity: 0.9
+    opacity: 0.95,
+    fontWeight: '500'
   },
   modeContainer: {
     display: 'flex',
     gap: '10px',
     padding: '15px',
     backgroundColor: 'white',
-    borderBottom: '1px solid #e0e0e0'
+    borderBottom: '2px solid #e0e0e0'
   },
   modeButton: {
     flex: 1,
-    padding: '12px',
+    padding: '14px',
     border: '2px solid #e0e0e0',
-    borderRadius: '10px',
+    borderRadius: '12px',
     backgroundColor: 'white',
     cursor: 'pointer',
     fontSize: '14px',
@@ -333,11 +362,12 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
-    transition: 'all 0.2s'
+    transition: 'all 0.3s'
   },
   modeButtonActive: {
-    borderColor: '#667eea',
-    backgroundColor: '#f0f4ff'
+    borderColor: '#EE2A35',
+    backgroundColor: '#FFF5F6',
+    boxShadow: '0 2px 8px rgba(238, 42, 53, 0.2)'
   },
   modeDesc: {
     fontSize: '11px',
@@ -349,35 +379,42 @@ const styles = {
     gap: '10px',
     padding: '15px',
     backgroundColor: 'white',
-    borderBottom: '1px solid #e0e0e0'
+    borderBottom: '2px solid #e0e0e0'
   },
   characterButton: {
     flex: 1,
-    padding: '15px',
+    padding: '16px',
     border: '2px solid #e0e0e0',
-    borderRadius: '10px',
+    borderRadius: '12px',
     backgroundColor: 'white',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    transition: 'all 0.2s'
+    transition: 'all 0.3s'
   },
-  characterActive: {
-    borderColor: '#667eea',
-    backgroundColor: '#f0f4ff'
+  characterActiveRaya: {
+    borderColor: '#00843D',
+    backgroundColor: '#F0FAF4',
+    boxShadow: '0 2px 8px rgba(0, 132, 61, 0.2)'
+  },
+  characterActiveMira: {
+    borderColor: '#EE2A35',
+    backgroundColor: '#FFF5F6',
+    boxShadow: '0 2px 8px rgba(238, 42, 53, 0.2)'
   },
   charEmoji: {
-    fontSize: '32px'
+    fontSize: '36px'
   },
   charName: {
-    fontSize: '16px',
-    fontWeight: '600',
+    fontSize: '18px',
+    fontWeight: '700',
     marginBottom: '2px'
   },
   charDesc: {
-    fontSize: '12px',
-    color: '#666'
+    fontSize: '13px',
+    color: '#666',
+    fontWeight: '500'
   },
   messagesContainer: {
     flex: 1,
@@ -385,7 +422,8 @@ const styles = {
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '15px'
+    gap: '15px',
+    backgroundColor: '#f8f8f8'
   },
   emptyState: {
     display: 'flex',
@@ -395,107 +433,146 @@ const styles = {
     height: '100%',
     color: '#999'
   },
+  logoCircle: {
+    width: '100px',
+    height: '100px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #EE2A35 0%, #00843D 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '20px',
+    boxShadow: '0 4px 20px rgba(238, 42, 53, 0.3)'
+  },
+  logoEmoji: {
+    fontSize: '48px'
+  },
   emptyText: {
     fontSize: '16px',
-    marginBottom: '5px'
+    marginBottom: '8px',
+    fontWeight: '500',
+    color: '#555'
   },
   emptySubtext: {
     fontSize: '14px',
-    color: '#bbb'
+    color: '#999'
   },
   message: {
     maxWidth: '80%',
-    padding: '12px 16px',
-    borderRadius: '18px',
-    wordWrap: 'break-word'
+    padding: '14px 18px',
+    borderRadius: '20px',
+    wordWrap: 'break-word',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
   },
   userMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#667eea',
+    background: 'linear-gradient(135deg, #EE2A35 0%, #C5203A 100%)',
     color: 'white'
   },
   assistantMessage: {
     alignSelf: 'flex-start',
     backgroundColor: 'white',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+    border: '1px solid #e8e8e8'
   },
   messageMeta: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    marginBottom: '6px',
+    marginBottom: '8px',
     fontSize: '13px',
-    fontWeight: '600',
-    color: '#667eea'
+    fontWeight: '700',
+    color: '#00843D'
   },
   messageEmoji: {
-    fontSize: '16px'
+    fontSize: '18px'
   },
-  messageName: {},
+  messageName: {
+    color: '#00843D'
+  },
   messageContent: {
-    lineHeight: '1.5'
+    lineHeight: '1.6',
+    fontSize: '15px'
   },
   playButton: {
-    marginTop: '8px',
-    padding: '6px 12px',
+    marginTop: '10px',
+    padding: '8px 14px',
     border: 'none',
-    borderRadius: '12px',
-    backgroundColor: '#f0f4ff',
-    color: '#667eea',
+    borderRadius: '14px',
+    background: 'linear-gradient(135deg, #00843D 0%, #006B31 100%)',
+    color: 'white',
     fontSize: '12px',
     fontWeight: '600',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    boxShadow: '0 2px 6px rgba(0, 132, 61, 0.3)'
   },
   inputContainer: {
     display: 'flex',
     gap: '10px',
-    padding: '15px',
+    padding: '16px',
     backgroundColor: 'white',
-    borderTop: '1px solid #e0e0e0'
+    borderTop: '2px solid #e0e0e0',
+    boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
   },
   micButton: {
-    padding: '12px 16px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '12px',
+    padding: '14px 18px',
+    border: '2px solid #00843D',
+    borderRadius: '14px',
     backgroundColor: 'white',
-    fontSize: '20px',
+    fontSize: '22px',
     cursor: 'pointer',
-    transition: 'all 0.2s'
+    transition: 'all 0.3s',
+    boxShadow: '0 2px 6px rgba(0, 132, 61, 0.2)'
   },
   micButtonActive: {
-    backgroundColor: '#ff4444',
-    borderColor: '#ff4444',
-    animation: 'pulse 1s infinite'
+    backgroundColor: '#EE2A35',
+    borderColor: '#EE2A35',
+    animation: 'pulse 1.5s infinite',
+    boxShadow: '0 0 20px rgba(238, 42, 53, 0.5)'
   },
   input: {
     flex: 1,
-    padding: '12px',
+    padding: '14px',
     border: '2px solid #e0e0e0',
-    borderRadius: '12px',
+    borderRadius: '14px',
     fontSize: '15px',
     resize: 'none',
-    fontFamily: 'inherit'
+    fontFamily: 'inherit',
+    transition: 'border-color 0.3s'
   },
   sendButton: {
-    padding: '12px 20px',
+    padding: '14px 22px',
     border: 'none',
-    borderRadius: '12px',
-    backgroundColor: '#667eea',
+    borderRadius: '14px',
+    background: 'linear-gradient(135deg, #EE2A35 0%, #C5203A 100%)',
     color: 'white',
-    fontSize: '20px',
+    fontSize: '22px',
     cursor: 'pointer',
-    transition: 'all 0.2s'
+    transition: 'all 0.3s',
+    boxShadow: '0 2px 8px rgba(238, 42, 53, 0.3)'
   },
   sendButtonDisabled: {
-    backgroundColor: '#ccc',
-    cursor: 'not-allowed'
+    background: '#ccc',
+    cursor: 'not-allowed',
+    boxShadow: 'none'
   },
   footer: {
-    padding: '10px',
+    padding: '12px',
     textAlign: 'center',
     fontSize: '11px',
-    color: '#999',
+    color: '#666',
     backgroundColor: 'white',
-    borderTop: '1px solid #e0e0e0'
+    borderTop: '2px solid #e0e0e0',
+    position: 'relative'
+  },
+  footerFlag: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '2px',
+    marginBottom: '8px'
+  },
+  footerFlagBar: {
+    width: '30px',
+    height: '4px',
+    borderRadius: '2px'
   }
 };
