@@ -8,12 +8,44 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [apiUrl, setApiUrl] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
-    // Set API URL - replace with your Render.com URL after deployment
+    // Set API URL
     setApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
-  }, []);
+    
+    // Check for speech recognition support
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        setSpeechSupported(true);
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = mode === 'dual' && character === 'raya' ? 'ar-AE' : 'en-US';
+        
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          setInput(transcript);
+          setIsListening(false);
+        };
+        
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+        };
+        
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+        
+        recognitionRef.current = recognition;
+      }
+    }
+  }, [mode, character]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,6 +54,27 @@ export default function Home() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const startListening = () => {
+    if (recognitionRef.current && !isListening) {
+      // Update language based on mode/character
+      if (mode === 'dual' && character === 'raya') {
+        recognitionRef.current.lang = 'ar-AE';
+      } else {
+        recognitionRef.current.lang = 'en-US';
+      }
+      
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
 
   const playAudio = (audioBase64) => {
     const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
@@ -35,7 +88,6 @@ export default function Home() {
     setInput('');
     setLoading(true);
 
-    // Add user message to chat
     const newMessages = [...messages, { role: 'user', content: userMessage }];
     setMessages(newMessages);
 
@@ -55,7 +107,6 @@ export default function Home() {
 
       const data = await response.json();
 
-      // Add assistant response
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: data.text_response,
@@ -64,7 +115,6 @@ export default function Home() {
         audioBase64: data.audio_base64
       }]);
 
-      // Auto-play audio
       if (data.audio_base64) {
         playAudio(data.audio_base64);
       }
@@ -154,9 +204,14 @@ export default function Home() {
             <div style={styles.emptyState}>
               <p style={styles.emptyText}>
                 {mode === 'smart' 
-                  ? '💬 Start chatting in Arabic or English!' 
+                  ? '💬 Type or speak in Arabic or English!' 
                   : `💬 Chat with ${character === 'raya' ? 'Raya 🇦🇪' : 'Mira 🌍'}`}
               </p>
+              {speechSupported && (
+                <p style={styles.emptySubtext}>
+                  🎤 Tap microphone to speak
+                </p>
+              )}
             </div>
           )}
 
@@ -190,21 +245,33 @@ export default function Home() {
 
         {/* Input Area */}
         <div style={styles.inputContainer}>
+          {speechSupported && (
+            <button
+              onClick={isListening ? stopListening : startListening}
+              style={{
+                ...styles.micButton,
+                ...(isListening ? styles.micButtonActive : {})
+              }}
+              disabled={loading}
+            >
+              {isListening ? '🔴' : '🎤'}
+            </button>
+          )}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
+            placeholder={isListening ? "Listening..." : "Type or speak your message..."}
             style={styles.input}
             rows={2}
-            disabled={loading}
+            disabled={loading || isListening}
           />
           <button
             onClick={sendMessage}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || isListening}
             style={{
               ...styles.sendButton,
-              ...(loading || !input.trim() ? styles.sendButtonDisabled : {})
+              ...(loading || !input.trim() || isListening ? styles.sendButtonDisabled : {})
             }}
           >
             {loading ? '⏳' : '📤'}
@@ -213,7 +280,7 @@ export default function Home() {
 
         {/* Footer */}
         <div style={styles.footer}>
-          Powered by Groq • Edge TTS • Built by Mr. Data
+          {speechSupported ? '🎤 Voice enabled • ' : ''}Powered by Groq • Edge TTS • Built by Mr. Data
         </div>
       </div>
     </>
@@ -322,13 +389,19 @@ const styles = {
   },
   emptyState: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
     color: '#999'
   },
   emptyText: {
-    fontSize: '16px'
+    fontSize: '16px',
+    marginBottom: '5px'
+  },
+  emptySubtext: {
+    fontSize: '14px',
+    color: '#bbb'
   },
   message: {
     maxWidth: '80%',
@@ -379,6 +452,20 @@ const styles = {
     padding: '15px',
     backgroundColor: 'white',
     borderTop: '1px solid #e0e0e0'
+  },
+  micButton: {
+    padding: '12px 16px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '12px',
+    backgroundColor: 'white',
+    fontSize: '20px',
+    cursor: 'pointer',
+    transition: 'all 0.2s'
+  },
+  micButtonActive: {
+    backgroundColor: '#ff4444',
+    borderColor: '#ff4444',
+    animation: 'pulse 1s infinite'
   },
   input: {
     flex: 1,
