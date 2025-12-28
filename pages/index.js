@@ -7,16 +7,24 @@ export default function Home() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [apiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || 'https://raya-mira-backend.onrender.com');
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
-  const isInitialized = useRef(false);
 
-  
-  const [apiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || 'https://raya-mira-backend.onrender.com');
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialized.current) {
+    if (typeof window !== 'undefined') {
+      setIsMobile(window.innerWidth < 768);
+      const handleResize = () => setIsMobile(window.innerWidth < 768);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         setSpeechSupported(true);
@@ -24,40 +32,30 @@ export default function Home() {
         recognition.continuous = false;
         recognition.interimResults = false;
         
-        // FIX: Set initial language based on character
-        recognition.lang = character === 'raya' ? 'ar-AE' : 'en-US';
-        
         recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           setInput(transcript);
           setIsListening(false);
-          // Auto-send after speech
-          setTimeout(() => {
-            handleSendMessage(transcript);
-          }, 500);
+          setTimeout(() => handleSendMessage(transcript), 500);
         };
         
         recognition.onerror = (event) => {
-          console.error('Speech recognition error:', event.error);
+          console.error('Speech error:', event.error);
           setIsListening(false);
         };
         
-        recognition.onend = () => {
-          setIsListening(false);
-        };
-        
+        recognition.onend = () => setIsListening(false);
         recognitionRef.current = recognition;
-        isInitialized.current = true;
       }
     }
   }, []);
 
-  // FIX: Update recognition language when character changes
+  // CRITICAL FIX: Update recognition language when character changes
   useEffect(() => {
     if (recognitionRef.current) {
-      const newLang = (mode === 'dual' && character === 'raya') ? 'ar-AE' : 'en-US';
-      recognitionRef.current.lang = newLang;
-      console.log('Updated recognition language to:', newLang);
+      const lang = (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
+      recognitionRef.current.lang = lang;
+      console.log('Speech recognition set to:', lang, 'for character:', character);
     }
   }, [mode, character]);
 
@@ -65,20 +63,18 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  useEffect(() => scrollToBottom(), [messages]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
-      const correctLang = (mode === 'dual' && character === 'raya') ? 'ar-AE' : 'en-US';
-      recognitionRef.current.lang = correctLang;
-      
+      const lang = (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
+      recognitionRef.current.lang = lang;
+      console.log('Starting recognition with lang:', lang);
       setIsListening(true);
       try {
         recognitionRef.current.start();
       } catch (error) {
-        console.error('Failed to start recognition:', error);
+        console.error('Failed to start:', error);
         setIsListening(false);
       }
     }
@@ -93,7 +89,7 @@ export default function Home() {
 
   const playAudio = (audioBase64) => {
     const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
-    audio.play().catch(err => console.error('Audio playback failed:', err));
+    audio.play().catch(err => console.error('Audio error:', err));
   };
 
   const handleSendMessage = async (messageText) => {
@@ -150,10 +146,7 @@ export default function Home() {
     }
   };
 
-  const sendMessage = () => {
-    handleSendMessage();
-  };
-
+  const sendMessage = () => handleSendMessage();
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -161,162 +154,164 @@ export default function Home() {
     }
   };
 
+  const containerStyle = {
+    ...styles.container,
+    ...(isMobile ? {} : styles.containerDesktop)
+  };
+
   return (
     <>
       <Head>
-        <title>Raya & Mira - Abu Dhabi Airport Assistants</title>
+        <title>Raya & Mira - Abu Dhabi Airport</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta name="description" content="AI-powered bilingual airport assistants for Abu Dhabi International Airport" />
       </Head>
 
-      <div style={styles.container}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.flagStripe}></div>
-          <h1 style={styles.title}>🇦🇪 Raya & Mira</h1>
-          <p style={styles.subtitle}>Abu Dhabi International Airport</p>
-        </div>
+      <div style={containerStyle}>
+        {!isMobile && <div style={styles.desktopOverlay}></div>}
+        
+        <div style={styles.contentWrapper}>
+          <div style={styles.header}>
+            <div style={styles.flagStripe}></div>
+            <h1 style={styles.title}>🇦🇪 Raya & Mira</h1>
+            <p style={styles.subtitle}>Abu Dhabi International Airport</p>
+          </div>
 
-        {/* Mode Selection */}
-        <div style={styles.modeContainer}>
-          <button
-            onClick={() => setMode('smart')}
-            style={{...styles.modeButton, ...(mode === 'smart' ? styles.modeButtonActive : {})}}
-          >
-            🤖 Smart Mode
-            <span style={styles.modeDesc}>Auto-detects language</span>
-          </button>
-          <button
-            onClick={() => setMode('dual')}
-            style={{...styles.modeButton, ...(mode === 'dual' ? styles.modeButtonActive : {})}}
-          >
-            👥 Dual Mode
-            <span style={styles.modeDesc}>Choose assistant</span>
-          </button>
-        </div>
-
-        {/* Character Selection */}
-        {mode === 'dual' && (
-          <div style={styles.characterContainer}>
+          <div style={styles.modeContainer}>
             <button
-              onClick={() => setCharacter('raya')}
-              style={{...styles.characterButton, ...(character === 'raya' ? styles.characterActiveRaya : {})}}
+              onClick={() => setMode('smart')}
+              style={{...styles.modeButton, ...(mode === 'smart' ? styles.modeButtonActive : {})}}
             >
-              <span style={styles.charEmoji}>🇦🇪</span>
-              <div>
-                <div style={styles.charName}>Raya</div>
-                <div style={styles.charDesc}>Emirati • العربية</div>
-              </div>
+              🤖 Smart Mode
+              <span style={styles.modeDesc}>Auto-detects language</span>
             </button>
             <button
-              onClick={() => setCharacter('mira')}
-              style={{...styles.characterButton, ...(character === 'mira' ? styles.characterActiveMira : {})}}
+              onClick={() => setMode('dual')}
+              style={{...styles.modeButton, ...(mode === 'dual' ? styles.modeButtonActive : {})}}
             >
-              <span style={styles.charEmoji}>🌍</span>
-              <div>
-                <div style={styles.charName}>Mira</div>
-                <div style={styles.charDesc}>International • English</div>
-              </div>
+              👥 Dual Mode
+              <span style={styles.modeDesc}>Choose assistant</span>
             </button>
           </div>
-        )}
 
-        {/* Chat Messages */}
-        <div style={styles.messagesContainer}>
-          {messages.length === 0 && (
-            <div style={styles.emptyState}>
-              <div style={styles.logoCircle}>
-                <span style={styles.logoEmoji}>
-                  {mode === 'dual' ? (character === 'raya' ? '🇦🇪' : '🌍') : '🎭'}
-                </span>
-              </div>
-              <p style={styles.emptyText}>
-                {mode === 'smart' 
-                  ? '💬 Speak or type in Arabic or English!' 
-                  : `مرحباً! Welcome to ${character === 'raya' ? 'Raya 🇦🇪' : 'Mira 🌍'}`}
-              </p>
-              {speechSupported && (
-                <p style={styles.emptySubtext}>
-                  🎤 Tap microphone to speak
-                </p>
-              )}
-            </div>
-          )}
-
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              style={{
-                ...styles.message,
-                ...(msg.role === 'user' ? styles.userMessage : styles.assistantMessage)
-              }}
-            >
-              {msg.role === 'assistant' && (
-                <div style={styles.messageMeta}>
-                  <span style={styles.messageEmoji}>{msg.emoji}</span>
-                  <span style={styles.messageName}>{msg.character}</span>
+          {mode === 'dual' && (
+            <div style={styles.characterContainer}>
+              <button
+                onClick={() => setCharacter('raya')}
+                style={{...styles.characterButton, ...(character === 'raya' ? styles.characterActiveRaya : {})}}
+              >
+                <span style={styles.charEmoji}>🇦🇪</span>
+                <div>
+                  <div style={styles.charName}>Raya</div>
+                  <div style={styles.charDesc}>Emirati • العربية</div>
                 </div>
-              )}
-              <div style={styles.messageContent}>{msg.content}</div>
-              {msg.audioBase64 && (
-                <button
-                  onClick={() => playAudio(msg.audioBase64)}
-                  style={styles.playButton}
-                >
-                  🔊 استمع • Listen
-                </button>
-              )}
+              </button>
+              <button
+                onClick={() => setCharacter('mira')}
+                style={{...styles.characterButton, ...(character === 'mira' ? styles.characterActiveMira : {})}}
+              >
+                <span style={styles.charEmoji}>🌍</span>
+                <div>
+                  <div style={styles.charName}>Mira</div>
+                  <div style={styles.charDesc}>International • English</div>
+                </div>
+              </button>
             </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input Area */}
-        <div style={styles.inputContainer}>
-          {speechSupported && (
-            <button
-              onClick={isListening ? stopListening : startListening}
-              style={{
-                ...styles.micButton,
-                ...(isListening ? styles.micButtonActive : {})
-              }}
-              disabled={loading}
-              title={character === 'raya' ? 'اضغط للتحدث' : 'Tap to speak'}
-            >
-              {isListening ? '🔴' : '🎤'}
-            </button>
           )}
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={isListening ? "جاري الاستماع... Listening..." : (character === 'raya' ? "اكتب رسالتك هنا..." : "Type your message...")}
-            style={styles.input}
-            rows={2}
-            disabled={loading || isListening}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={loading || !input.trim() || isListening}
-            style={{
-              ...styles.sendButton,
-              ...(loading || !input.trim() || isListening ? styles.sendButtonDisabled : {})
-            }}
-          >
-            {loading ? '⏳' : '📤'}
-          </button>
-        </div>
 
-        {/* Footer */}
-        <div style={styles.footer}>
-          <div style={styles.footerFlag}>
-            <div style={{...styles.footerFlagBar, backgroundColor: '#00843D'}}></div>
-            <div style={{...styles.footerFlagBar, backgroundColor: '#FFFFFF'}}></div>
-            <div style={{...styles.footerFlagBar, backgroundColor: '#000000'}}></div>
+          <div style={styles.messagesContainer}>
+            {messages.length === 0 && (
+              <div style={styles.emptyState}>
+                <div style={styles.logoCircle}>
+                  <span style={styles.logoEmoji}>
+                    {mode === 'dual' ? (character === 'raya' ? '🇦🇪' : '🌍') : '🎭'}
+                  </span>
+                </div>
+                <p style={styles.emptyText}>
+                  {mode === 'smart' 
+                    ? '💬 Speak or type in Arabic or English!' 
+                    : `مرحباً! Welcome to ${character === 'raya' ? 'Raya 🇦🇪' : 'Mira 🌍'}`}
+                </p>
+                {speechSupported && (
+                  <p style={styles.emptySubtext}>
+                    🎤 Tap microphone to speak
+                  </p>
+                )}
+              </div>
+            )}
+
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                style={{
+                  ...styles.message,
+                  ...(msg.role === 'user' ? styles.userMessage : styles.assistantMessage)
+                }}
+              >
+                {msg.role === 'assistant' && (
+                  <div style={styles.messageMeta}>
+                    <span style={styles.messageEmoji}>{msg.emoji}</span>
+                    <span style={styles.messageName}>{msg.character}</span>
+                  </div>
+                )}
+                <div style={styles.messageContent}>{msg.content}</div>
+                {msg.audioBase64 && (
+                  <button onClick={() => playAudio(msg.audioBase64)} style={styles.playButton}>
+                    🔊 استمع • Listen
+                  </button>
+                )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
           </div>
-          {speechSupported ? '🎤 Voice enabled • ' : ''}Powered by Groq & Edge TTS • Built in Abu Dhabi 🇦🇪
+
+          <div style={styles.inputContainer}>
+            {speechSupported && (
+              <button
+                onClick={isListening ? stopListening : startListening}
+                style={{...styles.micButton, ...(isListening ? styles.micButtonActive : {})}}
+                disabled={loading}
+              >
+                {isListening ? '🔴' : '🎤'}
+              </button>
+            )}
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={isListening ? "جاري الاستماع... Listening..." : (character === 'raya' ? "اكتب أو تحدث..." : "Type or speak...")}
+              style={styles.input}
+              rows={2}
+              disabled={loading || isListening}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={loading || !input.trim() || isListening}
+              style={{
+                ...styles.sendButton,
+                ...(loading || !input.trim() || isListening ? styles.sendButtonDisabled : {})
+              }}
+            >
+              {loading ? '⏳' : '📤'}
+            </button>
+          </div>
+
+          <div style={styles.footer}>
+            <div style={styles.footerFlag}>
+              <div style={{...styles.footerFlagBar, backgroundColor: '#00843D'}}></div>
+              <div style={{...styles.footerFlagBar, backgroundColor: '#FFFFFF'}}></div>
+              <div style={{...styles.footerFlagBar, backgroundColor: '#000000'}}></div>
+            </div>
+            {speechSupported ? '🎤 Voice enabled • ' : ''}Built in Abu Dhabi 🇦🇪
+          </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
     </>
   );
 }
@@ -326,17 +321,44 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
+    backgroundColor: '#f8f8f8',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif',
+    position: 'relative'
+  },
+  containerDesktop: {
+    backgroundImage: 'url("https://raw.githubusercontent.com/RayaAbuDhabi/raya-mira-frontend/main/airport-bg.jpg")',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed'
+  },
+  desktopOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'linear-gradient(135deg, rgba(238,42,53,0.12) 0%, rgba(0,132,61,0.12) 100%)',
+    backdropFilter: 'blur(1px)',
+    zIndex: 1
+  },
+  contentWrapper: {
+    position: 'relative',
+    zIndex: 2,
     maxWidth: '800px',
     margin: '0 auto',
-    backgroundColor: '#f8f8f8',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif'
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: 'rgba(248,248,248,0.98)',
+    boxShadow: '0 0 40px rgba(0,0,0,0.15)'
   },
   header: {
     background: 'linear-gradient(135deg, #EE2A35 0%, #C5203A 50%, #8B1528 100%)',
     color: 'white',
     padding: '20px',
     textAlign: 'center',
-    boxShadow: '0 4px 12px rgba(238, 42, 53, 0.3)',
+    boxShadow: '0 4px 12px rgba(238,42,53,0.3)',
     position: 'relative',
     overflow: 'hidden'
   },
@@ -364,7 +386,7 @@ const styles = {
     display: 'flex',
     gap: '10px',
     padding: '15px',
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderBottom: '2px solid #e0e0e0'
   },
   modeButton: {
@@ -384,7 +406,7 @@ const styles = {
   modeButtonActive: {
     borderColor: '#EE2A35',
     backgroundColor: '#FFF5F6',
-    boxShadow: '0 2px 8px rgba(238, 42, 53, 0.2)'
+    boxShadow: '0 2px 8px rgba(238,42,53,0.2)'
   },
   modeDesc: {
     fontSize: '11px',
@@ -395,7 +417,7 @@ const styles = {
     display: 'flex',
     gap: '10px',
     padding: '15px',
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderBottom: '2px solid #e0e0e0'
   },
   characterButton: {
@@ -413,12 +435,12 @@ const styles = {
   characterActiveRaya: {
     borderColor: '#00843D',
     backgroundColor: '#F0FAF4',
-    boxShadow: '0 2px 8px rgba(0, 132, 61, 0.2)'
+    boxShadow: '0 2px 8px rgba(0,132,61,0.2)'
   },
   characterActiveMira: {
     borderColor: '#EE2A35',
     backgroundColor: '#FFF5F6',
-    boxShadow: '0 2px 8px rgba(238, 42, 53, 0.2)'
+    boxShadow: '0 2px 8px rgba(238,42,53,0.2)'
   },
   charEmoji: {
     fontSize: '36px'
@@ -439,7 +461,8 @@ const styles = {
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '15px'
+    gap: '15px',
+    backgroundColor: 'transparent'
   },
   emptyState: {
     display: 'flex',
@@ -458,7 +481,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: '20px',
-    boxShadow: '0 4px 20px rgba(238, 42, 53, 0.3)'
+    boxShadow: '0 4px 20px rgba(238,42,53,0.3)'
   },
   logoEmoji: {
     fontSize: '48px'
@@ -519,13 +542,13 @@ const styles = {
     fontSize: '12px',
     fontWeight: '600',
     cursor: 'pointer',
-    boxShadow: '0 2px 6px rgba(0, 132, 61, 0.3)'
+    boxShadow: '0 2px 6px rgba(0,132,61,0.3)'
   },
   inputContainer: {
     display: 'flex',
     gap: '10px',
     padding: '16px',
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.98)',
     borderTop: '2px solid #e0e0e0',
     boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
   },
@@ -537,13 +560,13 @@ const styles = {
     fontSize: '22px',
     cursor: 'pointer',
     transition: 'all 0.3s',
-    boxShadow: '0 2px 6px rgba(0, 132, 61, 0.2)'
+    boxShadow: '0 2px 6px rgba(0,132,61,0.2)'
   },
   micButtonActive: {
     backgroundColor: '#EE2A35',
     borderColor: '#EE2A35',
     animation: 'pulse 1.5s infinite',
-    boxShadow: '0 0 20px rgba(238, 42, 53, 0.5)'
+    boxShadow: '0 0 20px rgba(238,42,53,0.5)'
   },
   input: {
     flex: 1,
@@ -553,7 +576,8 @@ const styles = {
     fontSize: '15px',
     resize: 'none',
     fontFamily: 'inherit',
-    transition: 'border-color 0.3s'
+    transition: 'border-color 0.3s',
+    backgroundColor: 'white'
   },
   sendButton: {
     padding: '14px 22px',
@@ -564,7 +588,7 @@ const styles = {
     fontSize: '22px',
     cursor: 'pointer',
     transition: 'all 0.3s',
-    boxShadow: '0 2px 8px rgba(238, 42, 53, 0.3)'
+    boxShadow: '0 2px 8px rgba(238,42,53,0.3)'
   },
   sendButtonDisabled: {
     background: '#ccc',
@@ -576,7 +600,7 @@ const styles = {
     textAlign: 'center',
     fontSize: '11px',
     color: '#666',
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderTop: '2px solid #e0e0e0'
   },
   footerFlag: {
