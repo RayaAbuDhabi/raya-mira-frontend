@@ -15,7 +15,8 @@ export default function Home() {
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    setApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+    // Hardcoded backend URL - WORKING FIX
+    setApiUrl('https://raya-mira-backend.onrender.com');
   }, []);
 
   useEffect(() => {
