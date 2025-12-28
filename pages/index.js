@@ -14,11 +14,8 @@ export default function Home() {
   const recognitionRef = useRef(null);
   const isInitialized = useRef(false);
 
-  useEffect(() => {
-    // Hardcoded backend URL - WORKING FIX
-    setApiUrl('https://raya-mira-backend.onrender.com');
-  }, []);
-
+  
+  const [apiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || 'https://raya-mira-backend.onrender.com');
   useEffect(() => {
     if (typeof window !== 'undefined' && !isInitialized.current) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
