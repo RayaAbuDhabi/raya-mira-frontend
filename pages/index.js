@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 
 export default function Home() {
-  const [mode, setMode] = useState('dual');
+  const [mode, setMode] = useState('dual'); // Start with Dual Mode (more reliable)
   const [character, setCharacter] = useState('raya');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -10,58 +10,71 @@ export default function Home() {
   const [apiUrl, setApiUrl] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
-  const isInitialized = useRef(false);
+
 
   useEffect(() => {
     setApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
-  }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialized.current) {
+
+    if (typeof window !== 'undefined') {
+
+
+
+
+
+
+
+
+
+
+
+
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         setSpeechSupported(true);
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = false;
-        
-        // FIX: Set initial language based on character
-        recognition.lang = character === 'raya' ? 'ar-AE' : 'en-US';
-        
+        recognition.lang = mode === 'dual' && character === 'raya' ? 'ar-AE' : 'en-US';
+
+
+
         recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           setInput(transcript);
           setIsListening(false);
-          // Auto-send after speech
+          // AUTO-SEND after speech recognition!
           setTimeout(() => {
             handleSendMessage(transcript);
           }, 500);
         };
-        
+
         recognition.onerror = (event) => {
           console.error('Speech recognition error:', event.error);
           setIsListening(false);
         };
-        
+
         recognition.onend = () => {
           setIsListening(false);
         };
-        
+
         recognitionRef.current = recognition;
-        isInitialized.current = true;
+
       }
     }
-  }, []);
 
-  // FIX: Update recognition language when character changes
-  useEffect(() => {
-    if (recognitionRef.current) {
-      const newLang = (mode === 'dual' && character === 'raya') ? 'ar-AE' : 'en-US';
-      recognitionRef.current.lang = newLang;
-      console.log('Updated recognition language to:', newLang);
-    }
+
+
+
+
+
+
+
+
   }, [mode, character]);
 
   const scrollToBottom = () => {
@@ -74,16 +87,19 @@ export default function Home() {
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
-      const correctLang = (mode === 'dual' && character === 'raya') ? 'ar-AE' : 'en-US';
-      recognitionRef.current.lang = correctLang;
-      
-      setIsListening(true);
-      try {
-        recognitionRef.current.start();
-      } catch (error) {
-        console.error('Failed to start recognition:', error);
-        setIsListening(false);
+      if (mode === 'dual' && character === 'raya') {
+        recognitionRef.current.lang = 'ar-AE';
+      } else {
+        recognitionRef.current.lang = 'en-US';
       }
+
+      setIsListening(true);
+      recognitionRef.current.start();
+
+
+
+
+
     }
   };
 
@@ -121,10 +137,10 @@ export default function Home() {
         })
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error: ${response.status} - ${errorText}`);
-      }
+      if (!response.ok) throw new Error('API request failed');
+
+
+
 
       const data = await response.json();
 
@@ -137,14 +153,14 @@ export default function Home() {
       }]);
 
       if (data.audio_base64) {
-        setTimeout(() => playAudio(data.audio_base64), 300);
+        playAudio(data.audio_base64);
       }
 
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Error: ${error.message}`,
+        content: `Error: ${error.message}. Please check if the API server is running.`,
         character: 'System',
         emoji: '⚠️'
       }]);
@@ -164,6 +180,11 @@ export default function Home() {
     }
   };
 
+
+
+
+
+
   return (
     <>
       <Head>
@@ -173,7 +194,7 @@ export default function Home() {
       </Head>
 
       <div style={styles.container}>
-        {/* Header */}
+        {/* Header - UAE Flag Colors */}
         <div style={styles.header}>
           <div style={styles.flagStripe}></div>
           <h1 style={styles.title}>🇦🇪 Raya & Mira</h1>
@@ -198,7 +219,7 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Character Selection */}
+        {/* Character Selection (Dual Mode) */}
         {mode === 'dual' && (
           <div style={styles.characterContainer}>
             <button
@@ -243,6 +264,10 @@ export default function Home() {
                   🎤 Tap microphone to speak
                 </p>
               )}
+
+
+
+
             </div>
           )}
 
@@ -274,11 +299,59 @@ export default function Home() {
           <div ref={messagesEndRef} />
         </div>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         {/* Input Area */}
         <div style={styles.inputContainer}>
           {speechSupported && (
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             <button
               onClick={isListening ? stopListening : startListening}
+
               style={{
                 ...styles.micButton,
                 ...(isListening ? styles.micButtonActive : {})
@@ -316,6 +389,8 @@ export default function Home() {
             <div style={{...styles.footerFlagBar, backgroundColor: '#00843D'}}></div>
             <div style={{...styles.footerFlagBar, backgroundColor: '#FFFFFF'}}></div>
             <div style={{...styles.footerFlagBar, backgroundColor: '#000000'}}></div>
+
+
           </div>
           {speechSupported ? '🎤 Voice enabled • ' : ''}Powered by Groq & Edge TTS • Built in Abu Dhabi 🇦🇪
         </div>
@@ -329,10 +404,37 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     maxWidth: '800px',
     margin: '0 auto',
     backgroundColor: '#f8f8f8',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif'
+
+
+
+
   },
   header: {
     background: 'linear-gradient(135deg, #EE2A35 0%, #C5203A 50%, #8B1528 100%)',
@@ -442,7 +544,8 @@ const styles = {
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '15px'
+    gap: '15px',
+    backgroundColor: '#f8f8f8'
   },
   emptyState: {
     display: 'flex',
@@ -557,6 +660,7 @@ const styles = {
     resize: 'none',
     fontFamily: 'inherit',
     transition: 'border-color 0.3s'
+
   },
   sendButton: {
     padding: '14px 22px',
@@ -580,7 +684,8 @@ const styles = {
     fontSize: '11px',
     color: '#666',
     backgroundColor: 'white',
-    borderTop: '2px solid #e0e0e0'
+    borderTop: '2px solid #e0e0e0',
+    position: 'relative'
   },
   footerFlag: {
     display: 'flex',
