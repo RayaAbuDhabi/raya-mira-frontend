@@ -360,7 +360,7 @@ const styles = {
   subtitle: {
     margin: 0,
     fontSize: '14px',
-    opacity: 0.95',
+    opacity: 0.95,
     fontWeight: '500'
   },
   modeContainer: {
