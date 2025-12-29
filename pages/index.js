@@ -154,7 +154,7 @@ export default function Home() {
           message: text,
           character: characterToSend,
           mode,
-          history: updatedMessages,
+          history: updatedMessages.map(m => ({ role: m.role, content: m.content })),
         }),
       });
 
