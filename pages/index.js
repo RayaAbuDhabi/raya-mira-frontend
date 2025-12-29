@@ -121,4 +121,128 @@ export default function Home() {
      SEND MESSAGE
   ========================= */
   const sendMessage = async (textOverride) => {
-    const text = (textOverride ?? input).tri
+    const text = (textOverride ?? input).trim();
+    if (!text || loading) return;
+
+    setInput("");
+    setLoading(true);
+
+    const updatedMessages = [
+      ...messages,
+      { role: "user", content: text },
+    ];
+    setMessages(updatedMessages);
+
+    const arabic = isArabicText(text);
+
+    const characterToSend =
+      mode === "smart"
+        ? arabic
+          ? "raya"
+          : "mira"
+        : characterRef.current;
+
+    if (mode === "smart") {
+      setSmartLang(arabic ? "ar" : "en");
+    }
+
+    try {
+      const res = await fetch(`${apiUrl}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          character: characterToSend,
+          mode,
+          history: updatedMessages,
+        }),
+      });
+
+      const data = await res.json();
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.text_response,
+          character: data.character_name,
+          emoji: data.emoji,
+          audioBase64: data.audio_base64,
+        },
+      ]);
+
+      if (data.audio_base64) {
+        setTimeout(() => playAudio(data.audio_base64), 200);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(scrollToBottom, [messages]);
+
+  /* =========================
+     UI
+  ========================= */
+  return (
+    <>
+      <Head>
+        <title>Raya & Mira</title>
+      </Head>
+
+      <div style={{ padding: 20, maxWidth: 800, margin: "auto" }}>
+        <h2>🇦🇪 Raya & Mira</h2>
+
+        <div style={{ marginBottom: 10 }}>
+          <button onClick={() => setMode("smart")}>
+            🤖 Auto
+          </button>
+          <button onClick={() => setMode("dual")}>
+            👥 Dual
+          </button>
+        </div>
+
+        {mode === "dual" && (
+          <div style={{ marginBottom: 10 }}>
+            <button onClick={() => setCharacter("raya")}>
+              Raya 🇦🇪
+            </button>
+            <button onClick={() => setCharacter("mira")}>
+              Mira 🌍
+            </button>
+          </div>
+        )}
+
+        <div>
+          {messages.map((m, i) => (
+            <div key={i}>
+              <b>{m.role === "user" ? "You" : m.character}</b>:{" "}
+              {m.content}
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          rows={2}
+          style={{ width: "100%" }}
+        />
+
+        <div>
+          {speechSupported && (
+            <button onClick={isListening ? stopListening : startListening}>
+              {isListening ? "🔴 Stop" : "🎤 Speak"}
+            </button>
+          )}
+          <button onClick={() => sendMessage()}>
+            Send
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
