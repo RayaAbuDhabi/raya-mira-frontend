@@ -3,16 +3,26 @@ import Head from 'next/head';
 
 export default function Home() {
   const [mode, setMode] = useState('dual');
-  const [character, setCharacter] = useState('raya');
+  // Default to Mira so English doesn't accidentally go through Raya unless user chooses Raya in Dual Mode
+  const [character, setCharacter] = useState('mira');
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [apiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || 'https://raya-mira-backend.onrender.com');
+
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Smart-mode mic language remembers last detected language (defaults to English)
+  const [smartLang, setSmartLang] = useState('en'); // 'en' | 'ar'
+
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
+
+  // Simple Arabic detector (same idea as backend)
+  const isArabicText = (text) => /[\u0600-\u06FF]/.test(text || '');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -31,33 +41,42 @@ export default function Home() {
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = false;
-        
+
         recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           setInput(transcript);
           setIsListening(false);
           setTimeout(() => handleSendMessage(transcript), 500);
         };
-        
+
         recognition.onerror = (event) => {
           console.error('Speech error:', event.error);
           setIsListening(false);
         };
-        
+
         recognition.onend = () => setIsListening(false);
         recognitionRef.current = recognition;
       }
     }
   }, []);
 
-  // CRITICAL FIX: Update recognition language when character changes
+  // Update recognition language:
+  // - Dual mode: Raya => ar-SA, Mira => en-US
+  // - Smart mode: follow last detected language (smartLang)
   useEffect(() => {
     if (recognitionRef.current) {
-      const lang = (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
+      let lang = 'en-US';
+
+      if (mode === 'dual') {
+        lang = (character === 'raya') ? 'ar-SA' : 'en-US';
+      } else {
+        lang = (smartLang === 'ar') ? 'ar-SA' : 'en-US';
+      }
+
       recognitionRef.current.lang = lang;
-      console.log('Speech recognition set to:', lang, 'for character:', character);
+      console.log('Speech recognition set to:', lang, 'mode:', mode, 'character:', character, 'smartLang:', smartLang);
     }
-  }, [mode, character]);
+  }, [mode, character, smartLang]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,9 +86,17 @@ export default function Home() {
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
-      const lang = (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
+      let lang = 'en-US';
+
+      if (mode === 'dual') {
+        lang = (character === 'raya') ? 'ar-SA' : 'en-US';
+      } else {
+        lang = (smartLang === 'ar') ? 'ar-SA' : 'en-US';
+      }
+
       recognitionRef.current.lang = lang;
       console.log('Starting recognition with lang:', lang);
+
       setIsListening(true);
       try {
         recognitionRef.current.start();
@@ -88,7 +115,8 @@ export default function Home() {
   };
 
   const playAudio = (audioBase64) => {
-    const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+    // More compatible than audio/mp3 in many browsers
+    const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
     audio.play().catch(err => console.error('Audio error:', err));
   };
 
@@ -102,13 +130,26 @@ export default function Home() {
     const newMessages = [...messages, { role: 'user', content: textToSend }];
     setMessages(newMessages);
 
+    // Decide which character to send:
+    // - Dual mode: respect user's selection
+    // - Smart mode: choose based on text language (English -> Mira, Arabic -> Raya)
+    const arabic = isArabicText(textToSend);
+    const characterToSend = (mode === 'smart')
+      ? (arabic ? 'raya' : 'mira')
+      : character;
+
+    // Update smart mic language memory so next mic session uses the right language
+    if (mode === 'smart') {
+      setSmartLang(arabic ? 'ar' : 'en');
+    }
+
     try {
       const response = await fetch(`${apiUrl}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: textToSend,
-          character: character,
+          character: characterToSend,
           mode: mode,
           history: newMessages.map(m => ({ role: m.role, content: m.content }))
         })
@@ -168,7 +209,7 @@ export default function Home() {
 
       <div style={containerStyle}>
         {!isMobile && <div style={styles.desktopOverlay}></div>}
-        
+
         <div style={styles.contentWrapper}>
           <div style={styles.header}>
             <div style={styles.flagStripe}></div>
@@ -179,14 +220,14 @@ export default function Home() {
           <div style={styles.modeContainer}>
             <button
               onClick={() => setMode('smart')}
-              style={{...styles.modeButton, ...(mode === 'smart' ? styles.modeButtonActive : {})}}
+              style={{ ...styles.modeButton, ...(mode === 'smart' ? styles.modeButtonActive : {}) }}
             >
               🤖 Smart Mode
               <span style={styles.modeDesc}>Auto-detects language</span>
             </button>
             <button
               onClick={() => setMode('dual')}
-              style={{...styles.modeButton, ...(mode === 'dual' ? styles.modeButtonActive : {})}}
+              style={{ ...styles.modeButton, ...(mode === 'dual' ? styles.modeButtonActive : {}) }}
             >
               👥 Dual Mode
               <span style={styles.modeDesc}>Choose assistant</span>
@@ -197,7 +238,7 @@ export default function Home() {
             <div style={styles.characterContainer}>
               <button
                 onClick={() => setCharacter('raya')}
-                style={{...styles.characterButton, ...(character === 'raya' ? styles.characterActiveRaya : {})}}
+                style={{ ...styles.characterButton, ...(character === 'raya' ? styles.characterActiveRaya : {}) }}
               >
                 <span style={styles.charEmoji}>🇦🇪</span>
                 <div>
@@ -207,7 +248,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setCharacter('mira')}
-                style={{...styles.characterButton, ...(character === 'mira' ? styles.characterActiveMira : {})}}
+                style={{ ...styles.characterButton, ...(character === 'mira' ? styles.characterActiveMira : {}) }}
               >
                 <span style={styles.charEmoji}>🌍</span>
                 <div>
@@ -227,8 +268,8 @@ export default function Home() {
                   </span>
                 </div>
                 <p style={styles.emptyText}>
-                  {mode === 'smart' 
-                    ? '💬 Speak or type in Arabic or English!' 
+                  {mode === 'smart'
+                    ? '💬 Speak or type in Arabic or English!'
                     : `مرحباً! Welcome to ${character === 'raya' ? 'Raya 🇦🇪' : 'Mira 🌍'}`}
                 </p>
                 {speechSupported && (
@@ -268,7 +309,7 @@ export default function Home() {
             {speechSupported && (
               <button
                 onClick={isListening ? stopListening : startListening}
-                style={{...styles.micButton, ...(isListening ? styles.micButtonActive : {})}}
+                style={{ ...styles.micButton, ...(isListening ? styles.micButtonActive : {}) }}
                 disabled={loading}
               >
                 {isListening ? '🔴' : '🎤'}
@@ -278,7 +319,13 @@ export default function Home() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={isListening ? "جاري الاستماع... Listening..." : (character === 'raya' ? "اكتب أو تحدث..." : "Type or speak...")}
+              placeholder={
+                isListening
+                  ? "جاري الاستماع... Listening..."
+                  : (mode === 'dual'
+                      ? (character === 'raya' ? "اكتب أو تحدث..." : "Type or speak...")
+                      : "Type or speak (Arabic/English)...")
+              }
               style={styles.input}
               rows={2}
               disabled={loading || isListening}
@@ -297,9 +344,9 @@ export default function Home() {
 
           <div style={styles.footer}>
             <div style={styles.footerFlag}>
-              <div style={{...styles.footerFlagBar, backgroundColor: '#00843D'}}></div>
-              <div style={{...styles.footerFlagBar, backgroundColor: '#FFFFFF'}}></div>
-              <div style={{...styles.footerFlagBar, backgroundColor: '#000000'}}></div>
+              <div style={{ ...styles.footerFlagBar, backgroundColor: '#00843D' }}></div>
+              <div style={{ ...styles.footerFlagBar, backgroundColor: '#FFFFFF' }}></div>
+              <div style={{ ...styles.footerFlagBar, backgroundColor: '#000000' }}></div>
             </div>
             {speechSupported ? '🎤 Voice enabled • ' : ''}Built in Abu Dhabi 🇦🇪
           </div>
