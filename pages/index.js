@@ -53,7 +53,6 @@ export default function Home() {
       // Heuristic: if we see Arabic letters, treat as Arabic; otherwise English
       if (mode === "smart") {
         const hasArabic = /[\u0600-\u06FF]/.test(transcript);
-        setSmartSpeechLang(hasArabic ? "ar-AE" : "en-US");
       }
 
       setTimeout(() => handleSendMessage(transcript), 200);
