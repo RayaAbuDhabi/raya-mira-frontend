@@ -15,10 +15,6 @@ export default function Home() {
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  // Smart-mode speech: remember last good recognition language
-  const [smartSpeechLang, setSmartSpeechLang] = useState("ar-AE"); // default Arabic for Gulf
-
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
 
