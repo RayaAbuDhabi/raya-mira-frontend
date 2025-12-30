@@ -1,6 +1,4 @@
-//
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageCircle } from 'lucide-react';
 
 export default function RayaMiraChat() {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
@@ -93,7 +91,6 @@ export default function RayaMiraChat() {
 
       const data = await response.json();
 
-      // Match backend response structure
       const assistantMessage = {
         role: 'assistant',
         content: data.text_response || data.response || data.message || 'No response received',
@@ -298,7 +295,7 @@ export default function RayaMiraChat() {
               cursor: (!inputMessage.trim() || isLoading) ? 'not-allowed' : 'pointer'
             }}
           >
-            <Send size={20} color="white" />
+            <span style={styles.sendIcon}>📤</span>
           </button>
         </div>
 
@@ -546,6 +543,9 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s',
     boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+  },
+  sendIcon: {
+    fontSize: '24px'
   },
   footer: {
     padding: '16px 24px',
