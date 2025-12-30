@@ -693,4 +693,4 @@ const styles = {
     borderRadius: "2px",
   },
 };
-'@ | Set-Content -Encoding UTF8 .\pages\index.js
+//'@ | Set-Content -Encoding UTF8 .\pages\index.js
