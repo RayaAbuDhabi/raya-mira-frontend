@@ -70,12 +70,9 @@ export default function Home() {
   }, [mode]); // re-bind if mode changes
 
   const getRecognitionLang = () => {
-    if (mode === "dual") {
-      // Raya = Arabic, Mira = English
-      return character === "raya" ? "ar-AE" : "en-US";
-    }
-    // Smart mode: use remembered best guess
-    return smartSpeechLang;
+    // Raya ALWAYS listens in Arabic
+    // Mira ALWAYS listens in English
+    return character === "raya" ? "ar-AE" : "en-GB";
   };
 
   useEffect(() => {
