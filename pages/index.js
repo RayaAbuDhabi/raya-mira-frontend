@@ -75,7 +75,7 @@ export default function Home() {
     const lang = getRecognitionLang();
     recognitionRef.current.lang = lang;
     console.log("Updated recognition language to:", lang);
-  }, [mode, character, smartSpeechLang]);
+  }, [character]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
