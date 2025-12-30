@@ -144,7 +144,7 @@ export default function Home() {
           history: safeHistory(newMessages),
         }),
       });
-        console.log("After SEND:", { character, mode, client_lang, textToSend });
+      console.log("After SEND:", { character, mode, client_lang, textToSend });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`API Error: ${response.status} - ${errorText}`);
