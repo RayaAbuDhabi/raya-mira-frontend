@@ -131,12 +131,12 @@ export default function Home() {
     // optional hint to backend (harmless if backend ignores; useful if you add it later)
     // Voice & language are locked to character, not mode, not detection
     const client_lang = character === "raya" ? "ar-AE" : "en-GB";
-
+    console.log("SEND: right after client_lang", { character, mode, client_lang, textToSend });
     try {
       const response = await fetch(`${apiUrl}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        console.log("SEND:", { character, mode, client_lang, textToSend });
+        console.log("SEND: inside fetch", { character, mode, client_lang, textToSend });
         body: JSON.stringify({
           message: textToSend,
           character,
@@ -144,8 +144,6 @@ export default function Home() {
           client_lang,
           history: safeHistory(newMessages),
         }),
-        console.log("SEND:", { character, mode, client_lang, textToSend });
-
       });
 
       if (!response.ok) {
