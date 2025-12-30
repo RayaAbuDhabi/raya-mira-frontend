@@ -137,14 +137,8 @@ export default function Home() {
     setMessages(newMessages);
 
     // optional hint to backend (harmless if backend ignores; useful if you add it later)
-    const client_lang =
-      mode === "dual"
-        ? character === "raya"
-          ? "ar-AE"
-          : "en-GB"
-        : /[\u0600-\u06FF]/.test(textToSend)
-        ? "ar-AE"
-        : "en-GB";
+    // Voice & language are locked to character, not mode, not detection
+    const client_lang = character === "raya" ? "ar-AE" : "en-GB";
 
     try {
       const response = await fetch(`${apiUrl}/chat`, {
