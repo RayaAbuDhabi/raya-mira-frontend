@@ -136,7 +136,6 @@ export default function Home() {
       const response = await fetch(`${apiUrl}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        console.log("SEND:", { character, mode, client_lang, textToSend });
         body: JSON.stringify({
           message: textToSend,
           character,
@@ -144,6 +143,7 @@ export default function Home() {
           client_lang,
           history: safeHistory(newMessages),
         }),
+        console.log("SEND:", { character, mode, client_lang, textToSend });
       });
 
       if (!response.ok) {
