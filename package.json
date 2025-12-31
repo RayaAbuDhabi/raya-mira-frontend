@@ -1,15 +1,21 @@
 {
-  "name": "raya-mira-frontend",
-  "version": "1.0.0",
+  "name": "raya-mera-frontend",
+  "version": "3.0.0",
+  "description": "Voice-enabled AI assistants with airport knowledge - Raya (British) & Mera (Arabic)",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "next": "14.0.4",
     "react": "18.2.0",
     "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "eslint": "8.56.0",
+    "eslint-config-next": "14.0.4"
   }
 }
