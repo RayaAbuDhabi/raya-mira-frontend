@@ -202,17 +202,10 @@ export default function Home() {
           <div style={styles.modeContainer}>
             <button
               onClick={() => setMode('smart')}
-              style={{
-                ...styles.modeButton, 
-                ...(mode === 'smart' ? styles.modeButtonActive : {}),
-                opacity: 0.4,
-                cursor: 'not-allowed',
-                pointerEvents: 'none'
-              }}
-              disabled={true}
+              style={{...styles.modeButton, ...(mode === 'smart' ? styles.modeButtonActive : {})}}
             >
               🤖 Smart Mode
-              <span style={styles.modeDesc}>Coming soon</span>
+              <span style={styles.modeDesc}>Auto-detects language</span>
             </button>
             <button
               onClick={() => setMode('dual')}
