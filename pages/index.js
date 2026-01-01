@@ -41,6 +41,19 @@ export default function Home() {
         
         recognition.onerror = (event) => {
           console.error('Speech error:', event.error);
+          
+          // AUTO MODE: If Arabic fails, try English
+          if (mode === 'smart' && (event.error === 'no-speech' || event.error === 'aborted')) {
+            console.log('Arabic not recognized, trying English...');
+            recognition.lang = 'en-US';
+            try {
+              recognition.start();
+              return; // Don't set isListening to false
+            } catch (e) {
+              console.error('English retry failed:', e);
+            }
+          }
+          
           setIsListening(false);
         };
         
@@ -53,9 +66,12 @@ export default function Home() {
   // CRITICAL FIX: Update recognition language when character changes
   useEffect(() => {
     if (recognitionRef.current) {
-      const lang = (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
+      // Smart mode: default to Arabic (most Abu Dhabi users)
+      // Dual mode: Raya = Arabic, Mera = English
+      const lang = mode === 'smart' ? 'ar-SA' : 
+                   (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
       recognitionRef.current.lang = lang;
-      console.log('Speech recognition set to:', lang, 'for character:', character);
+      console.log('Speech recognition set to:', lang, 'mode:', mode, 'character:', character);
     }
   }, [mode, character]);
 
@@ -67,9 +83,11 @@ export default function Home() {
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
-      const lang = (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
+      // Smart mode: Arabic, Dual mode: based on character
+      const lang = mode === 'smart' ? 'ar-SA' : 
+                   (mode === 'dual' && character === 'raya') ? 'ar-SA' : 'en-US';
       recognitionRef.current.lang = lang;
-      console.log('Starting recognition with lang:', lang);
+      console.log('Starting recognition - mode:', mode, 'lang:', lang);
       setIsListening(true);
       try {
         recognitionRef.current.start();
@@ -184,10 +202,17 @@ export default function Home() {
           <div style={styles.modeContainer}>
             <button
               onClick={() => setMode('smart')}
-              style={{...styles.modeButton, ...(mode === 'smart' ? styles.modeButtonActive : {})}}
+              style={{
+                ...styles.modeButton, 
+                ...(mode === 'smart' ? styles.modeButtonActive : {}),
+                opacity: 0.4,
+                cursor: 'not-allowed',
+                pointerEvents: 'none'
+              }}
+              disabled={true}
             >
               🤖 Smart Mode
-              <span style={styles.modeDesc}>Auto-detects language</span>
+              <span style={styles.modeDesc}>Coming soon</span>
             </button>
             <button
               onClick={() => setMode('dual')}
